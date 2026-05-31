@@ -11,6 +11,21 @@ export interface TestConfig {
   modelList: string[]
 }
 
+export interface WindowConfig {
+  x: number
+  y: number
+  width: number
+  height: number
+  maximized: boolean
+}
+
+export interface AppConfig {
+  configs: TestConfig[]
+  activeTabId?: string
+  locale?: string
+  windowState?: WindowConfig
+}
+
 export const DEFAULT_USER_AGENT = 'claude-cli/2.1.154 (external, sdk-cli)'
 
 export const DEFAULT_CONFIG: Omit<TestConfig, 'id' | 'name'> = {

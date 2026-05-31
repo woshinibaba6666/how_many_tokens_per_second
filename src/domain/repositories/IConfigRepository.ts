@@ -1,6 +1,6 @@
-import type { TestConfig } from '@domain/entities'
+import type { AppConfig } from '@domain/entities'
 
 export interface IConfigRepository {
-  load(): Promise<TestConfig[]>
-  save(configs: TestConfig[]): Promise<void>
+  load(): Promise<AppConfig>
+  save(config: AppConfig): Promise<void>
 }

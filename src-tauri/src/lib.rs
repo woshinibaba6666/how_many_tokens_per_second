@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use tauri::{Emitter, Manager};
-use tauri_plugin_window_state::WindowExt;
 use tokio::sync::mpsc;
 
 // ============================================================================
@@ -89,6 +89,22 @@ impl From<std::io::Error> for AppError {
 /// Thread-safe map of active stream abort senders.
 /// Key: stream_id, Value: abort sender channel.
 pub type StreamAbortMap = Arc<Mutex<HashMap<String, mpsc::Sender<()>>>>;
+
+/// Window state persisted to config.json.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WindowState {
+    pub x: i32,
+    pub y: i32,
+    pub width: u32,
+    pub height: u32,
+    pub maximized: bool,
+}
+
+/// Debounce state for window event saving.
+pub struct WindowSaveDebounce {
+    pub pending: Mutex<Option<WindowState>>,
+    pub last_event: Mutex<Instant>,
+}
 
 // ============================================================================
 // Commands
@@ -310,6 +326,43 @@ fn exe_dir() -> Result<std::path::PathBuf, String> {
     Ok(dir)
 }
 
+/// Read config.json and extract windowState field.
+fn read_window_state(exe_path: &std::path::Path) -> Option<WindowState> {
+    let config_path = exe_path.join("config.json");
+    let content = std::fs::read_to_string(&config_path).ok()?;
+    let value: serde_json::Value = serde_json::from_str(&content).ok()?;
+    let ws = value.get("windowState")?;
+    serde_json::from_value(ws.clone()).ok()
+}
+
+/// Update the windowState field in config.json, preserving other fields.
+fn write_window_state(exe_path: &std::path::Path, ws: &WindowState) {
+    let config_path = exe_path.join("config.json");
+    let mut value: serde_json::Value = if let Ok(content) = std::fs::read_to_string(&config_path) {
+        serde_json::from_str(&content).unwrap_or(serde_json::json!({}))
+    } else {
+        serde_json::json!({})
+    };
+    value["windowState"] = serde_json::to_value(ws).unwrap();
+    if let Ok(content) = serde_json::to_string_pretty(&value) {
+        let _ = std::fs::write(&config_path, content);
+    }
+}
+
+/// Capture current window position/size into a WindowState.
+fn capture_window(window: &tauri::WebviewWindow) -> Option<WindowState> {
+    let pos = window.outer_position().ok()?;
+    let size = window.inner_size().ok()?;
+    let maximized = window.is_maximized().unwrap_or(false);
+    Some(WindowState {
+        x: pos.x,
+        y: pos.y,
+        width: size.width,
+        height: size.height,
+        maximized,
+    })
+}
+
 /// Load config.json from the same directory as the executable.
 #[tauri::command(rename_all = "snake_case")]
 async fn cmd_load_config(exe_path: tauri::State<'_, std::path::PathBuf>) -> Result<serde_json::Value, String> {
@@ -330,10 +383,26 @@ async fn cmd_load_config(exe_path: tauri::State<'_, std::path::PathBuf>) -> Resu
 }
 
 /// Save config.json to the same directory as the executable.
+/// Merges with existing file to preserve fields not sent by frontend (e.g. windowState).
 #[tauri::command(rename_all = "snake_case")]
 async fn cmd_save_config(config: serde_json::Value, exe_path: tauri::State<'_, std::path::PathBuf>) -> Result<(), String> {
     let config_path = exe_path.join("config.json");
-    let content = serde_json::to_string_pretty(&config)
+
+    // Read existing config to preserve fields the frontend didn't send
+    let mut merged: serde_json::Value = if let Ok(content) = tokio::fs::read_to_string(&config_path).await {
+        serde_json::from_str(&content).unwrap_or(serde_json::json!({}))
+    } else {
+        serde_json::json!({})
+    };
+
+    // Merge frontend fields on top of existing config
+    if let (Some(merged_obj), Some(new_obj)) = (merged.as_object_mut(), config.as_object()) {
+        for (key, value) in new_obj {
+            merged_obj.insert(key.clone(), value.clone());
+        }
+    }
+
+    let content = serde_json::to_string_pretty(&merged)
         .map_err(|e| format!("Failed to serialize config: {}", e))?;
 
     tokio::fs::write(&config_path, content)
@@ -471,26 +540,69 @@ pub fn run() {
     let http_client = reqwest::Client::new();
     let exe_path = exe_dir().expect("Failed to determine exe directory");
 
+    let debounce = Arc::new(WindowSaveDebounce {
+        pending: Mutex::new(None),
+        last_event: Mutex::new(Instant::now()),
+    });
+
+    // Spawn a background thread that flushes pending window state after 500ms of inactivity
+    let debounce_bg = debounce.clone();
+    let exe_bg = exe_path.clone();
+    std::thread::spawn(move || {
+        loop {
+            std::thread::sleep(std::time::Duration::from_millis(200));
+            let should_write = {
+                let last = debounce_bg.last_event.lock().unwrap();
+                last.elapsed().as_millis() > 500
+            };
+            if should_write {
+                let ws = debounce_bg.pending.lock().unwrap().take();
+                if let Some(ws) = ws {
+                    write_window_state(&exe_bg, &ws);
+                }
+            }
+        }
+    });
+
     tauri::Builder::default()
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_fs::init())
-        .plugin(tauri_plugin_window_state::Builder::new().build())
         .plugin(tauri_plugin_clipboard_manager::init())
         .manage(abort_map)
         .manage(http_client)
-        .manage(exe_path)
-        .setup(|app| {
+        .manage(exe_path.clone())
+        .manage(debounce.clone())
+        .setup(move |app| {
             let window = app.get_webview_window("main").unwrap();
-            let _ = window.restore_state(tauri_plugin_window_state::StateFlags::all());
+
+            // Restore window state from config.json
+            if let Some(ws) = read_window_state(&exe_path) {
+                if ws.maximized {
+                    let _ = window.maximize();
+                } else {
+                    let _ = window.set_size(tauri::PhysicalSize::new(ws.width, ws.height));
+                    let _ = window.set_position(tauri::PhysicalPosition::new(ws.x, ws.y));
+                }
+            }
             let _ = window.show();
 
-            // Track maximized state and notify frontend
+            // Track window move/resize to persist state
             let window_clone = window.clone();
+            let debounce_clone = debounce.clone();
             window.on_window_event(move |event| {
-                if let tauri::WindowEvent::Resized(_) = event {
-                    if let Ok(maximized) = window_clone.is_maximized() {
-                        let _ = window_clone.emit("window-maximized-change", maximized);
+                match event {
+                    tauri::WindowEvent::Moved(_) | tauri::WindowEvent::Resized(_) => {
+                        // Emit maximized change for frontend
+                        if let Ok(maximized) = window_clone.is_maximized() {
+                            let _ = window_clone.emit("window-maximized-change", maximized);
+                        }
+                        // Mark pending state for debounced flush
+                        if let Some(ws) = capture_window(&window_clone) {
+                            *debounce_clone.pending.lock().unwrap() = Some(ws);
+                            *debounce_clone.last_event.lock().unwrap() = Instant::now();
+                        }
                     }
+                    _ => {}
                 }
             });
 

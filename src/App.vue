@@ -53,7 +53,7 @@ import ResultPanel from '@/presentation/views/ResultPanel.vue'
 import { useTabsStore } from '@/presentation/stores/tabs'
 import { TestEngine } from '@/infrastructure/services'
 import { configStorage, apiRepository } from '@/di'
-import type { TestConfig, TestResult } from '@/domain/entities'
+import type { TestConfig, TestResult, AppConfig } from '@/domain/entities'
 import type { Tab } from '@/presentation/stores/tabs'
 import { showErrorDialog } from '@/presentation/utils/error'
 import { ElMessageBox } from 'element-plus'
@@ -148,14 +148,18 @@ watch(locale, () => {
 // Load config on mount
 onMounted(async () => {
   window.addEventListener('click', onGlobalClick)
-  // Set initial title
-  updateTitle()
 
   try {
-    const configs = await configStorage.load()
-    if (configs.length > 0) {
-      // Restore tabs from saved configs
-      tabsStore.tabs = configs.map((cfg) => ({
+    const appConfig = await configStorage.load()
+
+    // Restore locale preference
+    if (appConfig.locale) {
+      locale.value = appConfig.locale
+    }
+
+    // Restore tabs from saved configs
+    if (appConfig.configs.length > 0) {
+      tabsStore.tabs = appConfig.configs.map((cfg) => ({
         id: cfg.id,
         name: cfg.name,
         config: {
@@ -172,7 +176,12 @@ onMounted(async () => {
         threads: [],
         result: null,
       }))
-      tabsStore.activeTabId = configs[0].id
+      // Restore active tab (validate it still exists)
+      if (appConfig.activeTabId && tabsStore.tabs.some(t => t.id === appConfig.activeTabId)) {
+        tabsStore.activeTabId = appConfig.activeTabId
+      } else {
+        tabsStore.activeTabId = appConfig.configs[0].id
+      }
     } else {
       tabsStore.ensureTab()
     }
@@ -180,17 +189,19 @@ onMounted(async () => {
     console.warn('Failed to load config:', e)
     tabsStore.ensureTab()
   }
+
+  // Set initial title after locale is restored
+  updateTitle()
 })
 
-// Auto-save config when tabs change (debounced)
+// Auto-save config when tabs, activeTabId, or locale change (debounced)
 let saveTimer: ReturnType<typeof setTimeout> | null = null
-watch(
-  () => tabsStore.tabs,
-  (newTabs) => {
-    if (saveTimer) clearTimeout(saveTimer)
-    saveTimer = setTimeout(async () => {
-      try {
-        const configs: TestConfig[] = newTabs.map((tab) => ({
+function scheduleSave() {
+  if (saveTimer) clearTimeout(saveTimer)
+  saveTimer = setTimeout(async () => {
+    try {
+      const appConfig: AppConfig = {
+        configs: tabsStore.tabs.map((tab) => ({
           id: tab.id,
           name: tab.name,
           apiType: tab.config.apiType,
@@ -201,15 +212,20 @@ watch(
           concurrency: tab.config.concurrency,
           prompt: tab.config.prompt,
           modelList: tab.config.modelList || [],
-        }))
-        await configStorage.save(configs)
-      } catch (error) {
-        console.error('Failed to save config:', error)
+        })),
+        activeTabId: tabsStore.activeTabId || undefined,
+        locale: locale.value,
       }
-    }, 500)
-  },
-  { deep: true }
-)
+      await configStorage.save(appConfig)
+    } catch (error) {
+      console.error('Failed to save config:', error)
+    }
+  }, 500)
+}
+
+watch(() => tabsStore.tabs, scheduleSave, { deep: true })
+watch(() => tabsStore.activeTabId, scheduleSave)
+watch(locale, scheduleSave)
 
 function mapThreads(threads: TestResult['threads']) {
   return threads.map((t) => ({
