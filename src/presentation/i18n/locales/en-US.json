@@ -1,0 +1,119 @@
+{
+  "app": {
+    "title": "How many tokens per second?",
+    "langSwitch": "中"
+  },
+  "tabs": {
+    "newTest": "New Test",
+    "defaultTitle": "Test {n}",
+    "close": "Close",
+    "rename": "Rename",
+    "confirmCloseTitle": "Confirm Close",
+    "confirmCloseMessage": "Closing this tab will delete its test data. Are you sure you want to close?",
+    "cancel": "Cancel",
+    "confirm": "Confirm"
+  },
+  "config": {
+    "title": "Test Configuration",
+    "apiType": "API Specification",
+    "openai": "OpenAI",
+    "endpoint": "API Endpoint (OpenAI Spec)",
+    "apiKey": "API Key",
+    "modelId": "Model ID",
+    "refreshModels": "Refresh Model List",
+    "showKey": "Show",
+    "hideKey": "Hide",
+    "userAgent": "User-Agent",
+    "concurrency": "Concurrency",
+    "noPresets": "No presets",
+    "noModels": "No models available",
+    "prompt": "Prompt Content",
+    "promptPlaceholder": "Enter a prompt or click the refresh button to generate one randomly",
+    "refreshPrompt": "Random Refresh Prompt",
+    "startTest": "Start Test",
+    "abortTest": "Abort Test",
+    "stopping": "Stopping..."
+  },
+  "threadView": {
+    "title": "Thread View",
+    "clearResults": "Clear Results",
+    "emptyState": "Click \"Start Test\" to initiate requests",
+    "waiting": "Waiting for threads to start...",
+    "thread": "Thread {n}",
+    "calculating": "Calculating...",
+    "tokens": "{n} tokens",
+    "firstToken": "First token {n}s",
+    "thinking": "Thinking Process",
+    "user": "User",
+    "assistant": "Assistant",
+    "system": "System"
+  },
+  "summary": {
+    "totalTime": "Total Time",
+    "totalTokens": "Total Tokens",
+    "avgSpeed": "Avg Speed",
+    "peakSpeed": "Peak Speed",
+    "firstTokenDelay": "First Token Delay",
+    "successRate": "Success Rate",
+    "rating": "Rating",
+    "unit": {
+      "time": "s",
+      "speed": "t/s"
+    }
+  },
+  "rating": {
+    "hang": "Beast",
+    "top": "Top Tier",
+    "good": "Excellent",
+    "npc": "Average",
+    "bad": "Poor"
+  },
+  "error": {
+    "title": "Error",
+    "fetchModelsFailed": "Failed to fetch model list",
+    "testFailed": "Test request failed",
+    "statusCode": "Status Code: {code}",
+    "message": "Error Message: {msg}",
+    "close": "Close"
+  },
+  "presets": {
+    "endpoint": {
+      "openai": "OpenAI",
+      "codex": "Codex",
+      "groq": "Groq",
+      "amazonBedrock": "Amazon Bedrock",
+      "opencodeZen": "OpenCode Zen",
+      "opencodeGo": "OpenCode Go",
+      "openrouter": "OpenRouter",
+      "nvidiaNim": "Nvidia NIM",
+      "aliyunBailian": "Alibaba Cloud Bailian",
+      "tencentHunyuan": "Tencent Cloud Hunyuan",
+      "baiduQianfan": "Baidu Qianfan",
+      "volcanoEngine": "Volcano Engine",
+      "deepseek": "DeepSeek Open Platform",
+      "moonshot": "Moonshot Open Platform",
+      "moonshotCoding": "Moonshot Coding Plan",
+      "zhipu": "Zhipu AI",
+      "zhipuCoding": "Zhipu AI Coding Plan",
+      "minimax": "MiniMax",
+      "xiaomiMimo": "Xiaomi Mimo Open Platform",
+      "xiaomiMimoCoding": "Xiaomi Mimo Coding Plan",
+      "youyun": "Youyun Intelligence",
+      "youyunCoding": "Youyun Intelligence Coding Plan",
+      "siliconflow": "SiliconFlow",
+      "iflytekXingchen": "iFlytek Xingchen Coding Plan"
+    }
+  },
+  "window": {
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "restore": "Restore",
+    "close": "Close"
+  },
+  "contextMenu": {
+    "cut": "Cut",
+    "copy": "Copy",
+    "paste": "Paste",
+    "selectAll": "Select All"
+  }
+}

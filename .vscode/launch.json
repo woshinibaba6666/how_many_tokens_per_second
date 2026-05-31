@@ -1,0 +1,56 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "1️⃣ Tauri Dev (Terminal)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run tauri dev",
+      "cwd": "${workspaceFolder}"
+    },
+
+    {
+      "name": "2️⃣ Debug Rust Backend (Attach)",
+      "type": "lldb",
+      "request": "attach",
+      "program": "${workspaceFolder}/src-tauri/target/debug/how-many-tokens-per-second",
+      "sourceLanguages": ["rust"]
+    },
+
+    {
+      "name": "3️⃣ Vite Dev Server (Frontend Only)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run dev",
+      "cwd": "${workspaceFolder}",
+      "serverReadyAction": {
+        "action": "openExternally",
+        "pattern": "Local:\\s+(https?://\\S+)",
+        "uriFormat": "%s"
+      }
+    },
+
+    {
+      "name": "4️⃣ Debug Rust Backend (Launcher)",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/src-tauri/target/debug/how-many-tokens-per-second",
+      "cargo": {
+        "args": [
+          "build",
+          "--manifest-path=${workspaceFolder}/src-tauri/Cargo.toml"
+        ]
+      },
+      "sourceLanguages": ["rust"]
+    }
+  ],
+
+  "compounds": [
+    {
+      "name": "Frontend Dev (Vite + Browser)",
+      "configurations": [
+        "3️⃣ Vite Dev Server (Frontend Only)"
+      ]
+    }
+  ]
+}

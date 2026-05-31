@@ -1,0 +1,68 @@
+// ==========================================
+// Design Tokens - Extracted from design/api-token-speed-test.html
+// Mapped to Element Plus theme variables
+// ==========================================
+
+// Element Plus Theme Override — must be first (Sass @forward rule)
+@forward 'element-plus/theme-chalk/src/common/var.scss' with (
+  $colors: (
+    'primary': (
+      'base': #3b82f6,
+    ),
+    'success': (
+      'base': #22c55e,
+    ),
+    'warning': (
+      'base': #f59e0b,
+    ),
+    'danger': (
+      'base': #ef4444,
+    ),
+  ),
+  $font-family: (
+    '': var(--font-body),
+  ),
+);
+
+:root {
+  // Base Colors (oklch from design file)
+  --bg: oklch(99% 0.002 240);
+  --surface: oklch(100% 0 0);
+  --fg: oklch(18% 0.012 250);
+  --muted: oklch(54% 0.012 250);
+  --border: oklch(92% 0.005 250);
+  --accent: oklch(58% 0.18 255);
+  --success: oklch(58% 0.16 145);
+  --warning: oklch(70% 0.14 85);
+  --danger: oklch(55% 0.18 25);
+
+  // Fonts
+  --font-body: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+
+  // Derived / Component-specific colors
+  --tab-bar-bg: oklch(94% 0.008 240);
+  --tab-hover-bg: oklch(96% 0.005 240);
+  --input-group-btn-bg: oklch(97% 0.003 240);
+  --input-group-btn-hover-bg: oklch(94% 0.005 240);
+  --thread-header-bg: oklch(98% 0.003 240);
+  --thread-footer-bg: oklch(98% 0.003 240);
+
+  // Effects
+  --accent-glow: oklch(58% 0.18 255 / 0.12);
+  --accent-subtle: oklch(58% 0.18 255 / 0.08);
+  --danger-hover-bg: oklch(55% 0.18 25);
+  --dropdown-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+
+  // Layout
+  --title-bar-height: 36px;
+  --config-panel-width: 380px;
+  --config-panel-min-width: 320px;
+  --border-radius-sm: 4px;
+  --border-radius-md: 6px;
+  --border-radius-lg: 8px;
+
+  // Transitions
+  --transition-fast: 0.06s;
+  --transition-normal: 0.12s;
+}

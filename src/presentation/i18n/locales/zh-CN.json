@@ -1,0 +1,119 @@
+{
+  "app": {
+    "title": "每秒输出多少次元？",
+    "langSwitch": "En"
+  },
+  "tabs": {
+    "newTest": "新建测试",
+    "defaultTitle": "测试 {n}",
+    "close": "关闭",
+    "rename": "重命名",
+    "confirmCloseTitle": "确认关闭",
+    "confirmCloseMessage": "关闭该标签页将删除测试数据，确定要关闭吗？",
+    "cancel": "取消",
+    "confirm": "确定"
+  },
+  "config": {
+    "title": "测试配置",
+    "apiType": "API 规范",
+    "openai": "OpenAI",
+    "endpoint": "API 端点（OpenAI 规范）",
+    "apiKey": "API Key",
+    "modelId": "模型 ID",
+    "refreshModels": "刷新模型列表",
+    "showKey": "显示",
+    "hideKey": "隐藏",
+    "userAgent": "User-Agent",
+    "concurrency": "并发数",
+    "noPresets": "无预设",
+    "noModels": "无可用模型",
+    "prompt": "提示词内容",
+    "promptPlaceholder": "请输入提示词，或点击刷新按钮随机生成",
+    "refreshPrompt": "随机刷新提示词",
+    "startTest": "开始测试",
+    "abortTest": "中断测试",
+    "stopping": "停止中..."
+  },
+  "threadView": {
+    "title": "线程视图",
+    "clearResults": "清除结果",
+    "emptyState": "点击「开始测试」发起请求",
+    "waiting": "等待线程启动...",
+    "thread": "线程 {n}",
+    "calculating": "计算中...",
+    "tokens": "{n} tokens",
+    "firstToken": "首字 {n}s",
+    "thinking": "思考过程",
+    "user": "用户",
+    "assistant": "助手",
+    "system": "系统"
+  },
+  "summary": {
+    "totalTime": "总耗时",
+    "totalTokens": "总 Token",
+    "avgSpeed": "平均速度",
+    "peakSpeed": "峰值速度",
+    "firstTokenDelay": "首字延迟",
+    "successRate": "成功率",
+    "rating": "评级",
+    "unit": {
+      "time": "s",
+      "speed": "t/s"
+    }
+  },
+  "rating": {
+    "hang": "夯",
+    "top": "顶级",
+    "good": "人上人",
+    "npc": "NPC",
+    "bad": "拉完了"
+  },
+  "error": {
+    "title": "错误",
+    "fetchModelsFailed": "获取模型列表失败",
+    "testFailed": "测试请求失败",
+    "statusCode": "状态码: {code}",
+    "message": "错误信息: {msg}",
+    "close": "关闭"
+  },
+  "presets": {
+    "endpoint": {
+      "openai": "OpenAI",
+      "codex": "Codex",
+      "groq": "Groq",
+      "amazonBedrock": "Amazon Bedrock",
+      "opencodeZen": "OpenCode Zen",
+      "opencodeGo": "OpenCode Go",
+      "openrouter": "OpenRouter",
+      "nvidiaNim": "Nvidia NIM",
+      "aliyunBailian": "阿里云百炼",
+      "tencentHunyuan": "腾讯云混元",
+      "baiduQianfan": "百度千帆",
+      "volcanoEngine": "火山引擎",
+      "deepseek": "DeepSeek 开放平台",
+      "moonshot": "月之暗面 开放平台",
+      "moonshotCoding": "月之暗面 Coding Plan",
+      "zhipu": "智谱AI",
+      "zhipuCoding": "智谱AI Coding Plan",
+      "minimax": "MiniMax",
+      "xiaomiMimo": "小米 Mimo 开放平台",
+      "xiaomiMimoCoding": "小米 Mimo Coding Plan",
+      "youyun": "优云智算",
+      "youyunCoding": "优云智算 Coding Plan",
+      "siliconflow": "硅基流动",
+      "iflytekXingchen": "讯飞星辰 Coding Plan"
+    }
+  },
+  "window": {
+    "minimize": "最小化",
+    "maximize": "最大化",
+    "restore": "还原",
+    "close": "关闭"
+  },
+  "contextMenu": {
+    "cut": "剪切",
+    "copy": "复制",
+    "paste": "粘贴",
+    "selectAll": "全选"
+  }
+}
