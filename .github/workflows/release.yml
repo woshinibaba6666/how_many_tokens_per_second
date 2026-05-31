@@ -47,10 +47,18 @@ jobs:
         with:
           args: --target x86_64-pc-windows-msvc
 
+      - name: Zip exe
+        shell: pwsh
+        run: |
+          $exe = "src-tauri/target/x86_64-pc-windows-msvc/release/how-many-tokens-per-second.exe"
+          $zip = "how-many-tokens-per-second_windows_x64_v${{ steps.version.outputs.version }}.zip"
+          Compress-Archive -Path $exe -DestinationPath $zip -Force
+          Write-Host "Created $zip"
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          files: src-tauri/target/x86_64-pc-windows-msvc/release/how-many-tokens-per-second.exe
+          files: how-many-tokens-per-second_windows_x64_v${{ steps.version.outputs.version }}.zip
           name: v${{ steps.version.outputs.version }}
           tag_name: ${{ github.ref_name }}
           generate_release_notes: true
