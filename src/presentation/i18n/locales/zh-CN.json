@@ -9,7 +9,7 @@
     "close": "关闭",
     "rename": "重命名",
     "confirmCloseTitle": "确认关闭",
-    "confirmCloseMessage": "关闭该标签页将删除测试数据，确定要关闭吗？",
+    "confirmCloseMessage": "关闭该标签页将删除测试配置，确定要关闭吗？",
     "cancel": "取消",
     "confirm": "确定"
   },

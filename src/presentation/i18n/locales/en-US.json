@@ -9,7 +9,7 @@
     "close": "Close",
     "rename": "Rename",
     "confirmCloseTitle": "Confirm Close",
-    "confirmCloseMessage": "Closing this tab will delete its test data. Are you sure you want to close?",
+    "confirmCloseMessage": "Closing this tab will delete its test configuration. Are you sure you want to close?",
     "cancel": "Cancel",
     "confirm": "Confirm"
   },
