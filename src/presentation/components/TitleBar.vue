@@ -4,10 +4,10 @@
     :class="{ 'is-tab-dragging': pendingDragIdx !== null || dragIndex !== null, 'is-mac': isMac, 'is-mac-traffic': isMac && !showMacIcon && !isFullscreen, 'is-mac-icon': isMac && showMacIcon && !isFullscreen, 'is-fullscreen': isMac && isFullscreen, 'no-transition': noTransition }"
     @mousedown="onTitleBarMouseDown"
   >
-    <!-- App icon (hidden on macOS when not fullscreen, shown to fill traffic lights area) -->
+    <!-- App icon: visible on Windows by default, on macOS only when fullscreen -->
     <div
       class="title-bar-icon"
-      :class="{ 'icon-visible': isMac && showMacIcon }"
+      :class="{ 'icon-visible': !isMac || showMacIcon }"
     >
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
         <path d="M13 10V3L4 14h7v7l9-11h-7z"/>

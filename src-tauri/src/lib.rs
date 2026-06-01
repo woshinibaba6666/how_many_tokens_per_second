@@ -29,12 +29,19 @@ pub struct ChatMessage {
     pub content: String,
 }
 
+/// stream_options for requesting usage in streaming mode
+#[derive(Debug, Serialize)]
+struct StreamOptions {
+    include_usage: bool,
+}
+
 /// OpenAI API request body
 #[derive(Debug, Serialize)]
 struct OpenAIRequestBody {
     model: String,
     messages: Vec<OpenAIMessage>,
     stream: bool,
+    stream_options: StreamOptions,
 }
 
 #[derive(Debug, Serialize)]
@@ -133,6 +140,9 @@ async fn cmd_stream_test(
             })
             .collect(),
         stream: true,
+        stream_options: StreamOptions {
+            include_usage: true,
+        },
     };
 
     let client = client.inner().clone();
