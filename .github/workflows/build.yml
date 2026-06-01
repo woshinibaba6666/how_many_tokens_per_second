@@ -51,3 +51,42 @@ jobs:
           name: how-many-tokens-per-second-windows-x64-v${{ steps.version.outputs.version }}
           path: src-tauri/target/x86_64-pc-windows-msvc/release/how-many-tokens-per-second.exe
           retention-days: 7
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Get version
+        id: version
+        run: |
+          version=$(python3 -c "import json; print(json.load(open('src-tauri/tauri.conf.json'))['version'])")
+          echo "version=$version" >> $GITHUB_OUTPUT
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: --target universal-apple-darwin
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: how-many-tokens-per-second-macos-universal-v${{ steps.version.outputs.version }}
+          path: src-tauri/target/universal-apple-darwin/release/bundle/macos/how-many-tokens-per-second.app
+          retention-days: 7
