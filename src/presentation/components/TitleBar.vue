@@ -1,11 +1,14 @@
 <template>
   <div
     class="title-bar"
-    :class="{ 'is-tab-dragging': pendingDragIdx !== null || dragIndex !== null, 'is-mac': isMac }"
+    :class="{ 'is-tab-dragging': pendingDragIdx !== null || dragIndex !== null, 'is-mac': isMac, 'is-mac-traffic': isMac && !showMacIcon, 'no-transition': noTransition }"
     @mousedown="onTitleBarMouseDown"
   >
-    <!-- App icon (hidden on macOS, traffic lights are shown instead) -->
-    <div v-if="!isMac" class="title-bar-icon">
+    <!-- App icon (hidden on macOS when not fullscreen, shown to fill traffic lights area) -->
+    <div
+      class="title-bar-icon"
+      :class="{ 'icon-visible': isMac && showMacIcon }"
+    >
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
         <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
       </svg>
@@ -146,6 +149,7 @@ import { TauriWindowService } from '@infrastructure/services/TauriWindowService'
 import type { IWindowService } from '@domain/services/IWindowService'
 import type { UnlistenFn } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
+import { listen } from '@tauri-apps/api/event'
 import { toggleLocale } from '@presentation/i18n'
 import { usePlatform } from '@presentation/composables/usePlatform'
 import type { Tab } from '@presentation/stores/tabs'
@@ -171,6 +175,8 @@ const { isMac } = usePlatform()
 const appWindow = getCurrentWindow()
 
 const isMaximized = ref(false)
+const showMacIcon = ref(false)
+const noTransition = ref(false)
 const editingName = ref('')
 const titleInputRef = ref<HTMLInputElement | null>(null)
 
@@ -225,6 +231,8 @@ function getTabStyle(idx: number) {
 const windowService: IWindowService = new TauriWindowService()
 let cleanupMaximized: (() => void) | null = null
 let unlistenMoved: UnlistenFn | null = null
+let unlistenWillMaximize: UnlistenFn | null = null
+let unlistenDidMaximize: UnlistenFn | null = null
 
 function cleanupDragState() {
   pendingDragIdx.value = null
@@ -247,9 +255,9 @@ function onTitleBarMouseDown(e: MouseEvent) {
   // Prevent text selection during drag
   e.preventDefault()
 
-  // Double click to toggle maximize
+  // Double click to toggle maximize (use IPC to avoid fullscreen on macOS)
   if (e.detail === 2) {
-    appWindow.toggleMaximize()
+    windowService.maximize()
     return
   }
 
@@ -261,6 +269,20 @@ onMounted(async () => {
   cleanupMaximized = windowService.onMaximizedChange((maximized) => {
     isMaximized.value = maximized
   })
+  // macOS: react to fullscreen BEFORE system animation starts
+  unlistenWillMaximize = await listen<boolean>('window-will-maximize-change', (event) => {
+    if (!event.payload) {
+      // Exiting fullscreen: no animation, snap back immediately
+      noTransition.value = true
+      showMacIcon.value = false
+      isMaximized.value = false
+      requestAnimationFrame(() => { noTransition.value = false })
+    } else {
+      // Entering fullscreen: with animation
+      noTransition.value = false
+      isMaximized.value = true
+    }
+  })
   // Keep the onMoved listener for drag cleanup - this is window-specific
   unlistenMoved = await appWindow.onMoved(() => {
     cleanupDragState()
@@ -268,11 +290,17 @@ onMounted(async () => {
   document.addEventListener('mousemove', onDocumentMouseMove)
   document.addEventListener('mouseup', onDocumentMouseUp)
   document.addEventListener('mousedown', onDocumentMouseDown)
+  // macOS: icon appears AFTER fullscreen animation completes
+  unlistenDidMaximize = await listen<boolean>('window-did-maximize-change', (event) => {
+    showMacIcon.value = event.payload
+  })
 })
 
 onUnmounted(() => {
   cleanupMaximized?.()
   unlistenMoved?.()
+  unlistenWillMaximize?.()
+  unlistenDidMaximize?.()
   document.removeEventListener('mousemove', onDocumentMouseMove)
   document.removeEventListener('mouseup', onDocumentMouseUp)
   document.removeEventListener('mousedown', onDocumentMouseDown)
@@ -548,18 +576,33 @@ function onContextMenuClose() {
     -webkit-app-region: no-drag;
   }
 
-  // macOS: add left padding for native traffic lights (close/minimize/maximize)
+  // macOS: base styles
   &.is-mac {
-    padding-left: 78px;
-    // Ensure draggable area works on macOS overlay mode
     -webkit-user-select: none;
-    // Align tabs to center vertically to match traffic light position
     align-items: center;
+    transition: padding-left 0.25s ease;
+  }
+
+  // macOS with native traffic lights visible (not fullscreen): add left padding
+  // When icon is visible (fullscreen), reduce padding by icon width (78 - 36 = 42)
+  &.is-mac-traffic {
+    padding-left: 78px;
+  }
+
+  // macOS fullscreen with icon: reduce padding by icon width
+  &.is-mac:not(.is-mac-traffic) {
+    padding-left: 42px;
+  }
+
+  // Disable all transitions (used when exiting fullscreen)
+  &.no-transition,
+  &.no-transition .title-bar-icon {
+    transition: none !important;
   }
 }
 
 .title-bar-icon {
-  width: 36px;
+  width: 0;
   height: 24px;
   flex-shrink: 0;
   display: flex;
@@ -567,8 +610,17 @@ function onContextMenuClose() {
   justify-content: center;
   align-self: center;
   margin-top: 3px;
-  margin-left: 1px;
+  margin-left: 0;
   color: var(--muted);
+  overflow: hidden;
+  opacity: 0;
+  transition: width 0.25s ease, opacity 0.25s ease;
+
+  &.icon-visible {
+    width: 36px;
+    margin-left: 1px;
+    opacity: 1;
+  }
 
   svg {
     opacity: 0.4;

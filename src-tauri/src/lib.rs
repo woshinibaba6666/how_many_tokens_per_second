@@ -622,6 +622,45 @@ pub fn run() {
             }
             let _ = window.show();
 
+            // macOS: observe fullscreen notifications
+            // NSWindowWill/DidEnter/ExitFullScreenNotification only fires for real fullscreen,
+            // NOT for zoom/maximize. No styleMask check needed.
+            #[cfg(target_os = "macos")]
+            {
+                use block2::RcBlock;
+                use objc2::msg_send;
+                use objc2::runtime::AnyObject;
+                use objc2_foundation::NSString;
+                use std::ffi::c_void;
+
+                let w1 = window.clone();
+                let w2 = window.clone();
+                let w3 = window.clone();
+                let w4 = window.clone();
+                unsafe {
+                    let center: *mut AnyObject = msg_send![objc2::class!(NSNotificationCenter), defaultCenter];
+
+                    let register = |name: &str, block: RcBlock<dyn Fn(*mut c_void)>| {
+                        let n = NSString::from_str(name);
+                        let _: () = msg_send![center,
+                            addObserverForName: &*n,
+                            object: std::ptr::null::<c_void>(),
+                            queue: std::ptr::null::<c_void>(),
+                            usingBlock: &*block
+                        ];
+                    };
+
+                    register("NSWindowWillEnterFullScreenNotification",
+                        RcBlock::new(move |_: *mut c_void| { let _ = w1.emit("window-will-maximize-change", true); }));
+                    register("NSWindowDidEnterFullScreenNotification",
+                        RcBlock::new(move |_: *mut c_void| { let _ = w2.emit("window-did-maximize-change", true); }));
+                    register("NSWindowWillExitFullScreenNotification",
+                        RcBlock::new(move |_: *mut c_void| { let _ = w3.emit("window-will-maximize-change", false); }));
+                    register("NSWindowDidExitFullScreenNotification",
+                        RcBlock::new(move |_: *mut c_void| { let _ = w4.emit("window-did-maximize-change", false); }));
+                }
+            }
+
             // Track window move/resize to persist state
             let window_clone = window.clone();
             let debounce_clone = debounce.clone();
