@@ -530,6 +530,12 @@ async fn cmd_toggle_devtools(webview: tauri::Webview) -> Result<(), String> {
     Ok(())
 }
 
+/// Return the current platform ("macos", "windows", or "linux").
+#[tauri::command(rename_all = "snake_case")]
+async fn cmd_platform() -> Result<String, String> {
+    Ok(std::env::consts::OS.to_string())
+}
+
 // ============================================================================
 // App entry point
 // ============================================================================
@@ -573,7 +579,37 @@ pub fn run() {
         .manage(exe_path.clone())
         .manage(debounce.clone())
         .setup(move |app| {
-            let window = app.get_webview_window("main").unwrap();
+            // Build window with platform-specific settings
+            let mut builder = tauri::WebviewWindowBuilder::new(
+                app,
+                "main",
+                tauri::WebviewUrl::App("index.html".into()),
+            )
+            .title("how-many-tokens-per-second")
+            .inner_size(1280.0, 800.0)
+            .min_inner_size(730.0, 650.0)
+            .background_color(tauri::window::Color(252, 252, 252, 255))
+            .visible(false)
+            .devtools(true);
+
+            // macOS: overlay title bar with traffic lights
+            #[cfg(target_os = "macos")]
+            {
+                use tauri::{LogicalPosition, TitleBarStyle};
+                builder = builder
+                    .decorations(true)
+                    .title_bar_style(TitleBarStyle::Overlay)
+                    .hidden_title(true)
+                    .traffic_light_position(LogicalPosition::new(12.0, 17.0));
+            }
+
+            // Windows: no decorations
+            #[cfg(target_os = "windows")]
+            {
+                builder = builder.decorations(false);
+            }
+
+            let window = builder.build()?;
 
             // Restore window state from config.json
             if let Some(ws) = read_window_state(&exe_path) {
@@ -618,6 +654,7 @@ pub fn run() {
             cmd_close_window,
             cmd_api_fetch,
             cmd_toggle_devtools,
+            cmd_platform,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

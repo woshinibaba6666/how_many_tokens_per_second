@@ -10,19 +10,7 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "windows": [
-      {
-        "title": "how-many-tokens-per-second",
-        "width": 1280,
-        "height": 800,
-        "decorations": false,
-        "minWidth": 730,
-        "minHeight": 650,
-        "backgroundColor": "#fcfcfc",
-        "visible": false,
-        "devtools": true
-      }
-    ],
+    "windows": [],
     "security": {
       "csp": null
     }
