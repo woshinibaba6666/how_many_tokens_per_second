@@ -1,7 +1,7 @@
 <template>
   <div
     class="title-bar"
-    :class="{ 'is-tab-dragging': pendingDragIdx !== null || dragIndex !== null, 'is-mac': isMac, 'is-mac-traffic': isMac && !showMacIcon, 'no-transition': noTransition }"
+    :class="{ 'is-tab-dragging': pendingDragIdx !== null || dragIndex !== null, 'is-mac': isMac, 'is-mac-traffic': isMac && !showMacIcon && !isFullscreen, 'is-mac-icon': isMac && showMacIcon && !isFullscreen, 'is-fullscreen': isMac && isFullscreen, 'no-transition': noTransition }"
     @mousedown="onTitleBarMouseDown"
   >
     <!-- App icon (hidden on macOS when not fullscreen, shown to fill traffic lights area) -->
@@ -175,6 +175,7 @@ const { isMac } = usePlatform()
 const appWindow = getCurrentWindow()
 
 const isMaximized = ref(false)
+const isFullscreen = ref(false)
 const showMacIcon = ref(false)
 const noTransition = ref(false)
 const editingName = ref('')
@@ -275,6 +276,7 @@ onMounted(async () => {
       // Exiting fullscreen: no animation, snap back immediately
       noTransition.value = true
       showMacIcon.value = false
+      isFullscreen.value = false
       isMaximized.value = false
       requestAnimationFrame(() => { noTransition.value = false })
     } else {
@@ -293,6 +295,13 @@ onMounted(async () => {
   // macOS: icon appears AFTER fullscreen animation completes
   unlistenDidMaximize = await listen<boolean>('window-did-maximize-change', (event) => {
     showMacIcon.value = event.payload
+    // Stage 1: icon appears (padding 78px → 42px)
+    // Stage 2: after icon animation, shift tab bar left (padding 42px → 0)
+    if (event.payload) {
+      setTimeout(() => {
+        isFullscreen.value = true
+      }, 250) // Wait for icon animation to complete
+    }
   })
 })
 
@@ -584,14 +593,18 @@ function onContextMenuClose() {
   }
 
   // macOS with native traffic lights visible (not fullscreen): add left padding
-  // When icon is visible (fullscreen), reduce padding by icon width (78 - 36 = 42)
   &.is-mac-traffic {
     padding-left: 78px;
   }
 
-  // macOS fullscreen with icon: reduce padding by icon width
-  &.is-mac:not(.is-mac-traffic) {
+  // macOS icon visible but not fully shifted: reduce padding by icon width
+  &.is-mac-icon {
     padding-left: 42px;
+  }
+
+  // macOS fully shifted: no padding
+  &.is-fullscreen {
+    padding-left: 0;
   }
 
   // Disable all transitions (used when exiting fullscreen)
