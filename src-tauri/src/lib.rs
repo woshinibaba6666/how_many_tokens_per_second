@@ -327,13 +327,23 @@ async fn cmd_abort_stream(
     }
 }
 
-fn exe_dir() -> Result<std::path::PathBuf, String> {
-    let exe = std::env::current_exe().map_err(|e| format!("Failed to get exe path: {}", e))?;
-    let dir = exe
-        .parent()
-        .ok_or("Failed to get exe directory")?
-        .to_path_buf();
-    Ok(dir)
+/// Get the platform-specific config directory.
+/// - Windows: executable directory (portable, no admin rights needed for user installs)
+/// - macOS/Linux: app config directory (~/.config or ~/Library/Application Support)
+fn get_config_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    if cfg!(target_os = "windows") {
+        // Windows: use exe directory for portability
+        let exe = std::env::current_exe().map_err(|e| format!("Failed to get exe path: {}", e))?;
+        let dir = exe
+            .parent()
+            .ok_or("Failed to get exe directory")?
+            .to_path_buf();
+        Ok(dir)
+    } else {
+        // macOS/Linux: use app config dir to avoid read-only filesystem issues
+        app.path().app_config_dir()
+            .map_err(|e| format!("Failed to get config dir: {}", e))
+    }
 }
 
 /// Read config.json and extract windowState field.
@@ -346,16 +356,25 @@ fn read_window_state(exe_path: &std::path::Path) -> Option<WindowState> {
 }
 
 /// Update the windowState field in config.json, preserving other fields.
-fn write_window_state(exe_path: &std::path::Path, ws: &WindowState) {
-    let config_path = exe_path.join("config.json");
+fn write_window_state(config_dir: &std::path::Path, ws: &WindowState) {
+    let config_path = config_dir.join("config.json");
     let mut value: serde_json::Value = if let Ok(content) = std::fs::read_to_string(&config_path) {
         serde_json::from_str(&content).unwrap_or(serde_json::json!({}))
     } else {
         serde_json::json!({})
     };
-    value["windowState"] = serde_json::to_value(ws).unwrap();
-    if let Ok(content) = serde_json::to_string_pretty(&value) {
-        let _ = std::fs::write(&config_path, content);
+    match serde_json::to_value(ws) {
+        Ok(state_value) => {
+            value["windowState"] = state_value;
+            if let Ok(content) = serde_json::to_string_pretty(&value) {
+                if let Err(e) = std::fs::write(&config_path, content) {
+                    eprintln!("Failed to write window state: {}", e);
+                }
+            }
+        }
+        Err(e) => {
+            eprintln!("Failed to serialize window state: {}", e);
+        }
     }
 }
 
@@ -373,7 +392,9 @@ fn capture_window(window: &tauri::WebviewWindow) -> Option<WindowState> {
     })
 }
 
-/// Load config.json from the same directory as the executable.
+/// Load config.json from platform-specific config directory.
+/// - Windows: executable directory
+/// - macOS/Linux: app config dir (~/.config or ~/Library/Application Support)
 #[tauri::command(rename_all = "snake_case")]
 async fn cmd_load_config(exe_path: tauri::State<'_, std::path::PathBuf>) -> Result<serde_json::Value, String> {
     let config_path = exe_path.join("config.json");
@@ -392,7 +413,7 @@ async fn cmd_load_config(exe_path: tauri::State<'_, std::path::PathBuf>) -> Resu
     Ok(value)
 }
 
-/// Save config.json to the same directory as the executable.
+/// Save config.json to platform-specific config directory.
 /// Merges with existing file to preserve fields not sent by frontend (e.g. windowState).
 #[tauri::command(rename_all = "snake_case")]
 async fn cmd_save_config(config: serde_json::Value, exe_path: tauri::State<'_, std::path::PathBuf>) -> Result<(), String> {
@@ -546,6 +567,12 @@ async fn cmd_platform() -> Result<String, String> {
     Ok(std::env::consts::OS.to_string())
 }
 
+/// Return the config directory path (for debugging).
+#[tauri::command(rename_all = "snake_case")]
+async fn cmd_config_dir(config_dir: tauri::State<'_, std::path::PathBuf>) -> Result<String, String> {
+    Ok(config_dir.to_string_lossy().to_string())
+}
+
 // ============================================================================
 // App entry point
 // ============================================================================
@@ -554,30 +581,10 @@ async fn cmd_platform() -> Result<String, String> {
 pub fn run() {
     let abort_map: StreamAbortMap = Arc::new(Mutex::new(HashMap::new()));
     let http_client = reqwest::Client::new();
-    let exe_path = exe_dir().expect("Failed to determine exe directory");
 
     let debounce = Arc::new(WindowSaveDebounce {
         pending: Mutex::new(None),
         last_event: Mutex::new(Instant::now()),
-    });
-
-    // Spawn a background thread that flushes pending window state after 500ms of inactivity
-    let debounce_bg = debounce.clone();
-    let exe_bg = exe_path.clone();
-    std::thread::spawn(move || {
-        loop {
-            std::thread::sleep(std::time::Duration::from_millis(200));
-            let should_write = {
-                let last = debounce_bg.last_event.lock().unwrap();
-                last.elapsed().as_millis() > 500
-            };
-            if should_write {
-                let ws = debounce_bg.pending.lock().unwrap().take();
-                if let Some(ws) = ws {
-                    write_window_state(&exe_bg, &ws);
-                }
-            }
-        }
     });
 
     tauri::Builder::default()
@@ -586,9 +593,42 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .manage(abort_map)
         .manage(http_client)
-        .manage(exe_path.clone())
         .manage(debounce.clone())
         .setup(move |app| {
+            // Resolve platform-specific config directory
+            let config_dir = get_config_dir(app.handle())?;
+            // Ensure config directory exists (important for macOS/Linux)
+            if !config_dir.exists() {
+                std::fs::create_dir_all(&config_dir)
+                    .map_err(|e| format!("Failed to create config dir: {}", e))?;
+            }
+
+            // Store config dir in state (replaces the placeholder)
+            app.manage(config_dir.clone());
+
+            // Spawn debounced window state saver
+            let debounce_bg = debounce.clone();
+            let config_dir_bg = config_dir.clone();
+            std::thread::spawn(move || {
+                loop {
+                    std::thread::sleep(std::time::Duration::from_millis(200));
+                    let should_write = {
+                        match debounce_bg.last_event.lock() {
+                            Ok(last) => last.elapsed().as_millis() > 500,
+                            Err(_) => continue,
+                        }
+                    };
+                    if should_write {
+                        let ws = match debounce_bg.pending.lock() {
+                            Ok(mut pending) => pending.take(),
+                            Err(_) => continue,
+                        };
+                        if let Some(ws) = ws {
+                            write_window_state(&config_dir_bg, &ws);
+                        }
+                    }
+                }
+            });
             // Build window with platform-specific settings
             let mut builder = tauri::WebviewWindowBuilder::new(
                 app,
@@ -622,7 +662,7 @@ pub fn run() {
             let window = builder.build()?;
 
             // Restore window state from config.json
-            if let Some(ws) = read_window_state(&exe_path) {
+            if let Some(ws) = read_window_state(&config_dir) {
                 if ws.maximized {
                     let _ = window.maximize();
                 } else {
@@ -683,8 +723,12 @@ pub fn run() {
                         }
                         // Mark pending state for debounced flush
                         if let Some(ws) = capture_window(&window_clone) {
-                            *debounce_clone.pending.lock().unwrap() = Some(ws);
-                            *debounce_clone.last_event.lock().unwrap() = Instant::now();
+                            if let Ok(mut pending) = debounce_clone.pending.lock() {
+                                *pending = Some(ws);
+                            }
+                            if let Ok(mut last) = debounce_clone.last_event.lock() {
+                                *last = Instant::now();
+                            }
                         }
                     }
                     _ => {}
@@ -704,6 +748,7 @@ pub fn run() {
             cmd_api_fetch,
             cmd_toggle_devtools,
             cmd_platform,
+            cmd_config_dir,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
