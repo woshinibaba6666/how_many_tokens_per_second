@@ -85,13 +85,8 @@ jobs:
         with:
           args: --target universal-apple-darwin
 
-      - name: Zip app
-        run: |
-          cd src-tauri/target/universal-apple-darwin/release/bundle/macos
-          zip -r "../../../../../../how-many-tokens-per-second_macos_universal_v${{ steps.version.outputs.version }}.zip" "how-many-tokens-per-second.app"
-
       - uses: actions/upload-artifact@v4
         with:
           name: how-many-tokens-per-second-macos-universal-v${{ steps.version.outputs.version }}
-          path: how-many-tokens-per-second_macos_universal_v${{ steps.version.outputs.version }}.zip
+          path: src-tauri/target/universal-apple-darwin/release/bundle/macos
           retention-days: 7
