@@ -85,6 +85,9 @@ jobs:
         with:
           args: --target universal-apple-darwin
 
+      - name: Remove tar.gz artifact
+        run: rm -f src-tauri/target/universal-apple-darwin/release/bundle/macos/*.tar.gz
+
       - uses: actions/upload-artifact@v4
         with:
           name: how-many-tokens-per-second-macos-universal-v${{ steps.version.outputs.version }}
